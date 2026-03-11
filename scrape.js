@@ -2,10 +2,10 @@ const puppeteer = require("puppeteer");
 const axios = require("axios");
 
 (async () => {
-  const browser = await puppeteer.launch({
-    headless: false,
-    args: ["--no-sandbox"],
-  });
+ const browser = await puppeteer.launch({
+  headless: true, // ⚡ importante en servidores
+  args: ["--no-sandbox", "--disable-setuid-sandbox"],
+});
 
   const page = await browser.newPage();
   await page.setUserAgent(
