@@ -22,6 +22,6 @@ jobs:
         run: npm install
 
       - name: Run Puppeteer scraper
-        run: node scrape-ml.js
+        run: node scrape.js
         env:
           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
