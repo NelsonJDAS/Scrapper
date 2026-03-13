@@ -40,34 +40,3 @@
 #         env:
 #           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
 
-
-name: Scrape MercadoLibre VE
-
-on:
-  schedule:
-    - cron: '*/30 * * * *'
-  workflow_dispatch:
-
-jobs:
-  scrape:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Install Playwright Browsers
-        run: node node_modules/playwright/cli.js install --with-deps
-
-      - name: Run scraper
-        run: node scrape.js
-        env:
-          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
