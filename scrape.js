@@ -1,6 +1,10 @@
 const puppeteer = require("puppeteer");
 const axios = require("axios");
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 (async () => {
   const browser = await puppeteer.launch({
     headless: true,
@@ -9,7 +13,7 @@ const axios = require("axios");
 
   const page = await browser.newPage();
   await page.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36"
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
   );
 
   const urls = [
@@ -20,7 +24,7 @@ const axios = require("axios");
     // Valencia
     "https://listado.mercadolibre.com.ve/inmuebles/carabobo/apartamento-valencia_PriceRange_30000USD-95000USD_PublishedToday_YES_BEDROOMS_3-*_NoIndex_True",
     "https://listado.mercadolibre.com.ve/inmuebles/carabobo/apartamento-valencia_Desde_49_PriceRange_30000USD-95000USD_PublishedToday_YES_BEDROOMS_3-*_NoIndex_True",
-    "https://listado.mercadolibre.com.ve/inmuebles/carabobo/apartamento-valencia_Desde_97_PriceRange_30000USD-95000USD_PublishedToday_YES_BEDROOMS_3-*_NoIndex_True"
+    "https://listado.mercadolibre.com.ve/inmuebles/carabobo/apartamento-valencia_Desde_97_PriceRange_30000USD-95000USD_PublishedToday_YES_BEDROOMS_3-*_NoIndex_True",
   ];
 
   let allResults = [];
@@ -30,8 +34,13 @@ const axios = require("axios");
   const generateSignature = (item) => {
     const priceNum = parseInt(item.price?.replace(/\D/g, "") || "0");
     const roundedPrice = Math.round(priceNum / 1000); // agrupar por miles
-    const titleShort = item.title?.toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 20) || "";
-    const locationShort = item.location?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
+    const titleShort =
+      item.title
+        ?.toLowerCase()
+        .replace(/[^a-z0-9]/g, "")
+        .substring(0, 20) || "";
+    const locationShort =
+      item.location?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
     const area = item.area || "";
     const rooms = item.rooms || "";
     return `${titleShort}-${roundedPrice}-${locationShort}-${area}-${rooms}`;
@@ -39,7 +48,8 @@ const axios = require("axios");
 
   for (const url of urls) {
     console.log("Scrapeando:", url);
-    await page.goto(url, { waitUntil: "domcontentloaded" });
+    await page.goto(url, { waitUntil: "networkidle2" });
+    await sleep(3000);
 
     const noResults = await page.evaluate(() => {
       return !!document.querySelector(".ui-search-null-results__title");
@@ -59,31 +69,45 @@ const axios = require("axios");
 
     const data = await page.evaluate(() => {
       const items = document.querySelectorAll(".ui-search-layout__item");
-      return [...items].map(el => {
-        const title = el.querySelector(".poly-component__title")?.innerText?.trim();
-        const price = el.querySelector(".andes-money-amount__fraction")?.innerText?.trim();
-        const location = el.querySelector(".poly-component__location")?.innerText?.trim();
+      return [...items].map((el) => {
+        const title = el
+          .querySelector(".poly-component__title")
+          ?.innerText?.trim();
+        const price = el
+          .querySelector(".andes-money-amount__fraction")
+          ?.innerText?.trim();
+        const location = el
+          .querySelector(".poly-component__location")
+          ?.innerText?.trim();
         const link = el.querySelector("a.poly-component__title")?.href;
 
         // Imagen robusta
         let img = null;
-        const specificImg = el.querySelector("img.ui-search-result-image__element");
+        const specificImg = el.querySelector(
+          "img.ui-search-result-image__element",
+        );
         if (specificImg?.src) img = specificImg.src;
         else {
           const allImgs = el.querySelectorAll("img");
           for (const i of allImgs) {
             const src = i.src || "";
-            if (src.includes("mlstatic.com")) { img = src; break; }
+            if (src.includes("mlstatic.com")) {
+              img = src;
+              break;
+            }
           }
         }
 
         // Habitaciones, baños y área
-        let rooms = null, bathrooms = null, area = null;
+        let rooms = null,
+          bathrooms = null,
+          area = null;
         const possibleAttributes = el.querySelectorAll("li, span");
-        possibleAttributes.forEach(attr => {
+        possibleAttributes.forEach((attr) => {
           const text = attr.innerText?.toLowerCase();
           if (!text) return;
-          if (text.includes("hab") || text.includes("dorm")) rooms = text.trim();
+          if (text.includes("hab") || text.includes("dorm"))
+            rooms = text.trim();
           else if (text.includes("baño")) bathrooms = text.trim();
           else if (text.includes("m²")) area = text.trim();
         });
@@ -92,13 +116,18 @@ const axios = require("axios");
       });
     });
 
-    data.forEach(item => {
+    data.forEach((item) => {
       const signature = generateSignature(item);
       if (!seenSignatures.has(signature)) {
         allResults.push(item);
         seenSignatures.add(signature);
       } else {
-        console.log("Duplicado detectado y descartado:", item.title, item.location, item.price);
+        console.log(
+          "Duplicado detectado y descartado:",
+          item.title,
+          item.location,
+          item.price,
+        );
       }
     });
 
@@ -112,10 +141,14 @@ const axios = require("axios");
   try {
     await axios.post(
       "https://n8n-n8n.sjctlk.easypanel.host/webhook/mercadolibre",
-      { results: allResults }
+      { results: allResults },
     );
     console.log("Datos enviados a n8n ✅");
   } catch (error) {
-    console.error("Error enviando a n8n:", error.response?.status, error.message);
+    console.error(
+      "Error enviando a n8n:",
+      error.response?.status,
+      error.message,
+    );
   }
 })();
