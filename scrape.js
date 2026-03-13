@@ -2,10 +2,10 @@ const puppeteer = require("puppeteer");
 const axios = require("axios");
 
 (async () => {
- const browser = await puppeteer.launch({
-  headless: true, // ⚡ importante en servidores
-  args: ["--no-sandbox", "--disable-setuid-sandbox"],
-});
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+  });
 
   const page = await browser.newPage();
   await page.setUserAgent(
@@ -17,7 +17,6 @@ const axios = require("axios");
     "https://listado.mercadolibre.com.ve/inmuebles/distrito-capital/apartamento-caracas_PriceRange_30000USD-95000USD_PublishedToday_YES_BEDROOMS_3-*_NoIndex_True",
     "https://listado.mercadolibre.com.ve/inmuebles/distrito-capital/apartamento-caracas_Desde_49_PriceRange_30000USD-95000USD_PublishedToday_YES_BEDROOMS_3-*_NoIndex_True",
     "https://listado.mercadolibre.com.ve/inmuebles/distrito-capital/apartamento-caracas_Desde_97_PriceRange_30000USD-95000USD_PublishedToday_YES_BEDROOMS_3-*_NoIndex_True",
-
     // Valencia
     "https://listado.mercadolibre.com.ve/inmuebles/carabobo/apartamento-valencia_PriceRange_30000USD-95000USD_PublishedToday_YES_BEDROOMS_3-*_NoIndex_True",
     "https://listado.mercadolibre.com.ve/inmuebles/carabobo/apartamento-valencia_Desde_49_PriceRange_30000USD-95000USD_PublishedToday_YES_BEDROOMS_3-*_NoIndex_True",
@@ -25,22 +24,32 @@ const axios = require("axios");
   ];
 
   let allResults = [];
+  const seenSignatures = new Set();
+
+  // Función para generar la firma semántica
+  const generateSignature = (item) => {
+    const priceNum = parseInt(item.price?.replace(/\D/g, "") || "0");
+    const roundedPrice = Math.round(priceNum / 1000); // agrupar por miles
+    const titleShort = item.title?.toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 20) || "";
+    const locationShort = item.location?.toLowerCase().replace(/[^a-z0-9]/g, "") || "";
+    const area = item.area || "";
+    const rooms = item.rooms || "";
+    return `${titleShort}-${roundedPrice}-${locationShort}-${area}-${rooms}`;
+  };
 
   for (const url of urls) {
     console.log("Scrapeando:", url);
     await page.goto(url, { waitUntil: "domcontentloaded" });
 
-    // ✅ Verificar si la página no tiene resultados
     const noResults = await page.evaluate(() => {
       return !!document.querySelector(".ui-search-null-results__title");
     });
 
     if (noResults) {
       console.log("Página vacía (sin resultados), saltando...");
-      continue; // pasa a la siguiente URL
+      continue;
     }
 
-    // ✅ Esperar los items con timeout reducido
     try {
       await page.waitForSelector(".ui-search-layout__item", { timeout: 5000 });
     } catch {
@@ -48,7 +57,6 @@ const axios = require("axios");
       continue;
     }
 
-    // Extraer datos
     const data = await page.evaluate(() => {
       const items = document.querySelectorAll(".ui-search-layout__item");
       return [...items].map(el => {
@@ -57,23 +65,19 @@ const axios = require("axios");
         const location = el.querySelector(".poly-component__location")?.innerText?.trim();
         const link = el.querySelector("a.poly-component__title")?.href;
 
-        // 🎯 Extraer imagen robustamente
+        // Imagen robusta
         let img = null;
         const specificImg = el.querySelector("img.ui-search-result-image__element");
-        if (specificImg?.src) {
-          img = specificImg.src;
-        } else {
+        if (specificImg?.src) img = specificImg.src;
+        else {
           const allImgs = el.querySelectorAll("img");
           for (const i of allImgs) {
             const src = i.src || "";
-            if (src.includes("mlstatic.com")) {
-              img = src;
-              break;
-            }
+            if (src.includes("mlstatic.com")) { img = src; break; }
           }
         }
 
-        // 📌 Extraer habitaciones, baños y área
+        // Habitaciones, baños y área
         let rooms = null, bathrooms = null, area = null;
         const possibleAttributes = el.querySelectorAll("li, span");
         possibleAttributes.forEach(attr => {
@@ -88,17 +92,26 @@ const axios = require("axios");
       });
     });
 
-    allResults = allResults.concat(data);
-    console.log("Resultados extraídos de esta página:", data.length);
+    data.forEach(item => {
+      const signature = generateSignature(item);
+      if (!seenSignatures.has(signature)) {
+        allResults.push(item);
+        seenSignatures.add(signature);
+      } else {
+        console.log("Duplicado detectado y descartado:", item.title, item.location, item.price);
+      }
+    });
+
+    console.log("Resultados únicos acumulados hasta ahora:", allResults.length);
   }
 
   await browser.close();
-  console.log("TOTAL resultados:", allResults.length);
+  console.log("TOTAL resultados únicos:", allResults.length);
 
   // Enviar datos a n8n
   try {
     await axios.post(
-      "http://localhost:5678/webhook/mercadolibre",
+      "https://n8n-n8n.sjctlk.easypanel.host/webhook/mercadolibre",
       { results: allResults }
     );
     console.log("Datos enviados a n8n ✅");
