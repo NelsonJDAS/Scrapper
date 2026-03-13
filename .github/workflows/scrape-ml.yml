@@ -54,35 +54,20 @@ jobs:
 
     steps:
 
-      # 1️⃣ Traer el código
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Cache npm
-      - name: Cache Node modules
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            playwright-${{ runner.os }}-
-
-      # 3️⃣ Node
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '20'
 
-      # 4️⃣ Instalar dependencias
       - name: Install dependencies
         run: npm install
 
-      # ⭐ MUY IMPORTANTE
-      # instalar Chromium para Playwright
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
+        run: npx --yes playwright install --with-deps
 
-      # 5️⃣ Ejecutar scraper
       - name: Run scraper
         run: node scrape.js
         env:
