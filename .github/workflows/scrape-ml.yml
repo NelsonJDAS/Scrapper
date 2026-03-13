@@ -1,0 +1,27 @@
+name: Scrape MercadoLibre VE
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # cada 30 minutos
+  workflow_dispatch: # permite ejecución manual
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Puppeteer scraper
+        run: node scrape-ml.js
+        env:
+          N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}

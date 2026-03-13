@@ -1,13 +1,8 @@
 {
-  "name": "mercadolibre-scraper",
+  "name": "ml-scraper-ve",
   "version": "1.0.0",
-  "description": "Scraper de apartamentos de MercadoLibre que envía datos a n8n",
-  "main": "scrape.js",
-  "scripts": {
-    "start": "node scrape.js"
-  },
   "dependencies": {
-    "axios": "^1.6.8",
-    "puppeteer": "^22.0.0"
+    "puppeteer": "^21.0.1",
+    "axios": "^1.6.6"
   }
 }
