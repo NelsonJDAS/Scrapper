@@ -2,7 +2,7 @@
   "name": "ml-scraper-ve",
   "version": "1.0.0",
   "dependencies": {
-    "puppeteer": "^21.0.1",
-    "axios": "^1.6.6"
+    "axios": "^1.13.6",
+    "puppeteer": "^24.39.1"
   }
 }
