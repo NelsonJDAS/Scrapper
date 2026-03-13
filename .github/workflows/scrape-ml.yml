@@ -1,41 +1,89 @@
+# name: Scrape MercadoLibre VE
+
+# on:
+#   schedule:
+#     - cron: '*/30 * * * *'  # cada 30 minutos
+#   workflow_dispatch: # permite ejecución manual
+
+# jobs:
+#   scrape:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       # 1️⃣ Trae el código del repo
+#       - name: Checkout repository
+#         uses: actions/checkout@v3
+
+#       # 2️⃣ Cache limpio de npm para evitar usar puppeteer-core viejo
+#       - name: Cache Node modules
+#         uses: actions/cache@v3
+#         with:
+#           path: ~/.npm
+#           # Cambiamos la key para forzar un cache limpio
+#           key: puppeteer-clean-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+#           restore-keys: |
+#             puppeteer-clean-${{ runner.os }}-
+
+#       # 3️⃣ Instala Node.js 20
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v3
+#         with:
+#           node-version: '20'
+
+#       # 4️⃣ Instala Puppeteer completo + Axios
+#       - name: Install dependencies
+#         run: npm install
+
+#       # 5️⃣ Ejecuta tu scraper
+#       - name: Run Puppeteer scraper
+#         run: node scrape.js
+#         env:
+#           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+
+
 name: Scrape MercadoLibre VE
 
 on:
   schedule:
-    - cron: '*/30 * * * *'  # cada 30 minutos
-  workflow_dispatch: # permite ejecución manual
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Trae el código del repo
+
+      # 1️⃣ Traer el código
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2️⃣ Cache limpio de npm para evitar usar puppeteer-core viejo
+      # 2️⃣ Cache npm
       - name: Cache Node modules
         uses: actions/cache@v3
         with:
           path: ~/.npm
-          # Cambiamos la key para forzar un cache limpio
-          key: puppeteer-clean-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: |
-            puppeteer-clean-${{ runner.os }}-
+            playwright-${{ runner.os }}-
 
-      # 3️⃣ Instala Node.js 20
+      # 3️⃣ Node
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '20'
 
-      # 4️⃣ Instala Puppeteer completo + Axios
+      # 4️⃣ Instalar dependencias
       - name: Install dependencies
         run: npm install
 
-      # 5️⃣ Ejecuta tu scraper
-      - name: Run Puppeteer scraper
+      # ⭐ MUY IMPORTANTE
+      # instalar Chromium para Playwright
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      # 5️⃣ Ejecutar scraper
+      - name: Run scraper
         run: node scrape.js
         env:
           N8N_WEBHOOK_URL: ${{ secrets.N8N_WEBHOOK_URL }}
